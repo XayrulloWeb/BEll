@@ -1,181 +1,63 @@
+// Файл: src/store/useStore.ts (ПОЛНАЯ ФИНАЛЬНАЯ ЗАМЕНА)
 import { create } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
 import { useAuthStore } from './useAuthStore';
 
-// --- ИНТЕРФЕЙСЫ --- (без изменений)
+// --- ИНТЕРФЕЙСЫ ---
 export interface Bell { id: string; time: string; name: string; day: string; enabled: boolean; soundId: string; scheduleId: string; bellType: 'lesson' | 'break'; breakDuration: number; }
 export interface ScheduleSet { id: string; name: string; bells: Bell[]; }
 export interface Sound { id: string; name: string; url: string; }
 export interface ActivityLog { timestamp: number; message: string; }
 export type BellData = Omit<Bell, 'id' | 'scheduleId'>;
 
+// <<< НОВЫЙ ИНТЕРФЕЙС ДЛЯ НАСТРОЙКИ КАЖДОГО УРОКА >>>
+export interface LessonConfig {
+    lessonDuration: number;
+    breakDuration: number;
+}
+
+// <<< ОБНОВЛЕННЫЙ ИНТЕРФЕЙС ДЛЯ ПАРАМЕТРОВ ГЕНЕРАТОРА >>>
+export interface GeneratorParams {
+    scheduleId: string;
+    day: string;
+    startTime: string;
+    lessonConfigs: LessonConfig[]; // Вместо отдельных чисел - массив объектов
+    action: 'append' | 'overwrite';
+}
+
 // --- ИНТЕРФЕЙС ХРАНИЛИЩА ---
 export interface StoreState {
     // Состояние
-    isLoading: boolean;
-    isServerError: boolean;
-    currentTime: Date;
-    schedules: Record<string, ScheduleSet>;
-    activeScheduleId: string | null;
-    sounds: Sound[];
-    activityLog: ActivityLog[];
+    isLoading: boolean; isServerError: boolean; currentTime: Date; schedules: Record<string, ScheduleSet>;
+    activeScheduleId: string | null; sounds: Sound[]; activityLog: ActivityLog[];
     // Действия
-    fetchInitialData: () => Promise<void>;
-    updateCurrentTime: () => void;
-    addLogEntry: (message: string) => void;
-
-    addScheduleSet: (name: string) => Promise<void>;
-    deleteScheduleSet: (scheduleId: string) => Promise<void>;
-    setActiveSchedule: (scheduleId: string) => Promise<void>;
-
-    addBell: (scheduleId: string, bellData: BellData) => Promise<void>;
-    updateBell: (bellId: string, updatedData: Partial<BellData>) => Promise<void>;
-    deleteBell: (bellId: string) => Promise<void>;
-    // Генератор простых звонков для дня
-    generateDayBells?: (params: { scheduleId: string; day: string; startTime: string; lessons: number; lessonMinutes: number; breakMinutes: number; }) => Promise<void>;
-    resetState?: () => void;
+    fetchInitialData: () => Promise<void>; addScheduleSet: (name: string) => Promise<void>; deleteScheduleSet: (scheduleId: string) => Promise<void>; setActiveSchedule: (scheduleId: string) => Promise<void>; addBell: (scheduleId: string, bellData: BellData) => Promise<void>; updateBell: (bellId: string, updatedData: Partial<BellData>) => Promise<void>; deleteBell: (bellId: string) => Promise<void>;
+    generateDayBells: (params: GeneratorParams) => Promise<void>; // Обновленный тип
+    // Утилиты
+    updateCurrentTime: () => void; addLogEntry: (message: string) => void; resetState?: () => void;
 }
-const initialState = {
-    isLoading: true,
-    isServerError: false,
-    currentTime: new Date(),
-    schedules: {},
-    activeScheduleId: null,
-    sounds: [],
-    activityLog: [],
-};
-
+const initialState = { isLoading: true, isServerError: false, currentTime: new Date(), schedules: {}, activeScheduleId: null, sounds: [], activityLog: [] };
 const API_URL = 'http://localhost:4000/api';
-
-// Функция для получения заголовков с токеном
-const getAuthHeaders = () => {
-    const token = useAuthStore.getState().token;
-    return {
-        'Content-Type': 'application/json',
-        ...(token && { 'Authorization': `Bearer ${token}` }),
-    };
-};
+const getAuthHeaders = () => { const token = useAuthStore.getState().token; return { 'Content-Type': 'application/json', ...(token && { 'Authorization': `Bearer ${token}` }) }; };
 
 const useStore = create<StoreState>((set, get) => ({
-    // --- НАЧАЛЬНОЕ СОСТОЯНИЕ --- (без изменений)
     ...initialState,
-    isLoading: true, isServerError: false, currentTime: new Date(), schedules: {}, activeScheduleId: null, sounds: [], activityLog: [],
     resetState: () => set(initialState),
-    // --- ДЕЙСТВИЯ ---
 
-    // fetchInitialData с аутентификацией
-    fetchInitialData: async () => { 
-        set({ isLoading: true, isServerError: false }); 
-        try { 
-            const response = await fetch(`${API_URL}/data`, {
-                headers: getAuthHeaders()
-            }); 
-            if (!response.ok) {
-                if (response.status === 401 || response.status === 403) {
-                    // Токен недействителен, выходим из системы
-                    useAuthStore.getState().logout();
-                    throw new Error('Сессия истекла или доступ запрещен. Войдите снова.');
-                }
-                throw new Error('Server response was not ok'); 
-            }
-            const data = await response.json(); 
-            set({ 
-                schedules: data.schedules, 
-                sounds: data.sounds, 
-                activeScheduleId: data.activeScheduleId, 
-                activityLog: [{ timestamp: Date.now(), message: "System initialized and data loaded." }], 
-                isLoading: false, 
-            }); 
-        } catch (error) { 
-            console.error("Критическая ошибка при загрузке данных:", error); 
-            set({ 
-                isLoading: false, 
-                isServerError: true, 
-                activityLog: [{ timestamp: Date.now(), message: "Failed to load data from server." }] 
-            }); 
-        } 
-    },
-    // updateCurrentTime и addLogEntry без изменений
+    fetchInitialData: async () => { set({ isLoading: true, isServerError: false }); try { const response = await fetch(`${API_URL}/data`, { headers: getAuthHeaders() }); if (!response.ok) { if (response.status === 401 || response.status === 403) { useAuthStore.getState().logout(); throw new Error('Сессия истекла или доступ запрещен. Войдите снова.'); } throw new Error('Server response was not ok'); } const data = await response.json(); set({ schedules: data.schedules, sounds: data.sounds, activeScheduleId: data.activeScheduleId, activityLog: [{ timestamp: Date.now(), message: "System initialized and data loaded." }], isLoading: false }); } catch (error) { console.error("Критическая ошибка при загрузке данных:", error); set({ isLoading: false, isServerError: true, activityLog: [{ timestamp: Date.now(), message: "Failed to load data from server." }] }); } },
     updateCurrentTime: () => set({ currentTime: new Date() }),
     addLogEntry: (message: string) => set(state => ({ activityLog: [...state.activityLog, { timestamp: Date.now(), message }] })),
 
-    // addScheduleSet с аутентификацией
-    addScheduleSet: async (name: string) => { 
-        const originalSchedules = get().schedules; 
-        const tempId = `schedule-${Date.now()}`; 
-        const newScheduleSet: ScheduleSet = { id: tempId, name, bells: [] }; 
-        set(state => ({ schedules: { ...state.schedules, [tempId]: newScheduleSet } })); 
-        try { 
-            await fetch(`${API_URL}/schedules`, { 
-                method: 'POST', 
-                headers: getAuthHeaders(), 
-                body: JSON.stringify({ id: tempId, name }), 
-            }); 
-            get().addLogEntry(`New schedule "${name}" created.`); 
-        } catch (error) { 
-            console.error("Ошибка добавления набора расписаний:", error); 
-            get().addLogEntry(`Failed to create schedule "${name}".`); 
-            set({ schedules: originalSchedules }); 
-        } 
-    },
-
-    deleteScheduleSet: async (scheduleId: string) => {
-        const { schedules, activeScheduleId } = get();
-        const scheduleToDelete = schedules[scheduleId];
-        if (!scheduleToDelete) return;
-
-        // Сохраняем состояние для возможного отката
-        const originalSchedules = schedules;
-
-        // Оптимистичное обновление UI
-        const newSchedules = { ...schedules };
-        delete newSchedules[scheduleId];
-        set({ schedules: newSchedules });
-
-        // Если удалили активное расписание, нужно сбросить activeScheduleId
-        if (activeScheduleId === scheduleId) {
-            set({ activeScheduleId: null });
-            // В будущем тут можно будет устанавливать другое расписание активным по умолчанию
-        }
-
-        try {
-            const response = await fetch(`${API_URL}/schedules/${scheduleId}`, { method: 'DELETE', headers: getAuthHeaders() });
-            if (!response.ok) throw new Error('Failed to delete schedule on server');
-            get().addLogEntry(`Schedule "${scheduleToDelete.name}" deleted.`);
-        } catch(error) {
-            console.error("Ошибка удаления расписания:", error);
-            get().addLogEntry(`Failed to delete schedule "${scheduleToDelete.name}".`);
-            // Откат в случае ошибки
-            set({ schedules: originalSchedules, activeScheduleId });
-        }
-    },
-
-    // setActiveSchedule с аутентификацией
-    setActiveSchedule: async (scheduleId: string) => { 
-        const originalId = get().activeScheduleId; 
-        set({ activeScheduleId: scheduleId }); 
-        try { 
-            await fetch(`${API_URL}/settings/activeSchedule`, { 
-                method: 'POST', 
-                headers: getAuthHeaders(), 
-                body: JSON.stringify({ id: scheduleId }), 
-            }); 
-            get().addLogEntry(`Active schedule changed.`); 
-        } catch (error) { 
-            console.error("Ошибка смены активного расписания:", error); 
-            get().addLogEntry(`Failed to change active schedule.`); 
-            set({ activeScheduleId: originalId }); 
-        } 
-    },
-
-    // Функции для звонков с аутентификацией
+    addScheduleSet: async (name: string) => { const o = get().schedules; const t = `schedule-${Date.now()}`; const n:ScheduleSet={id:t,name,bells:[]}; set(s=>({schedules:{...s.schedules,[t]:n}})); try{await fetch(`${API_URL}/schedules`,{method:'POST',headers:getAuthHeaders(),body:JSON.stringify({id:t,name})}); get().addLogEntry(`New schedule "${name}" created.`);} catch(e){console.error("E:",e);get().addLogEntry(`Failed to create schedule "${name}".`); set({schedules:o});}},
+    deleteScheduleSet: async (scheduleId) => { const {schedules:s, activeScheduleId:a}=get();const d=s[scheduleId];if(!d)return;const n={...s};delete n[scheduleId];set({schedules:n});if(a===scheduleId)set({activeScheduleId:null});try{const r=await fetch(`${API_URL}/schedules/${scheduleId}`,{method:'DELETE',headers:getAuthHeaders()});if(!r.ok)throw new Error('Failed'); get().addLogEntry(`Schedule "${d.name}" deleted.`);}catch(e){console.error("E:",e);get().addLogEntry(`Failed to delete schedule "${d.name}".`);set({schedules:s,activeScheduleId:a});}},
+    setActiveSchedule: async (scheduleId) => { const o=get().activeScheduleId;set({activeScheduleId:scheduleId});try{await fetch(`${API_URL}/settings/activeSchedule`,{method:'POST',headers:getAuthHeaders(),body:JSON.stringify({id:scheduleId})}); get().addLogEntry(`Active schedule changed.`);}catch(e){console.error("E:",e);get().addLogEntry(`Failed to change active schedule.`);set({activeScheduleId:o});}},
     addBell: async (scheduleId, bellData) => { 
-        const newBell: Bell = { ...bellData, id: uuidv4(), scheduleId: scheduleId }; 
-        const originalSchedules = get().schedules; 
-        const scheduleToUpdate = originalSchedules[scheduleId]; 
-        if (!scheduleToUpdate) return; 
-        const updatedSchedule = { ...scheduleToUpdate, bells: [...scheduleToUpdate.bells, newBell] }; 
-        set({ schedules: { ...originalSchedules, [scheduleId]: updatedSchedule } }); 
+        const newBell: Bell = { ...bellData, id: uuidv4(), scheduleId: scheduleId };
+        const originalSchedules = get().schedules;
+        const scheduleToUpdate = originalSchedules[scheduleId];
+        if (!scheduleToUpdate) return;
+        const updatedSchedule = { ...scheduleToUpdate, bells: [...scheduleToUpdate.bells, newBell] };
+        set({ schedules: { ...originalSchedules, [scheduleId]: updatedSchedule } });
         try { 
             await fetch(`${API_URL}/bells`, { 
                 method: 'POST', 
@@ -184,96 +66,78 @@ const useStore = create<StoreState>((set, get) => ({
             }); 
             get().addLogEntry(`New bell "${newBell.name}" added.`); 
         } catch (error) { 
-            console.error("Ошибка сохранения звонка:", error); 
+            console.error("Ошибка сохранения звонка:", error);
             get().addLogEntry(`Failed to add bell "${newBell.name}".`); 
             set({ schedules: originalSchedules }); 
         } 
     },
-    updateBell: async (bellId, updatedData) => { 
-        const originalSchedules = get().schedules; 
-        let targetScheduleId: string | null = null; 
-        for (const scheduleId in originalSchedules) { 
-            if (originalSchedules[scheduleId].bells.some(b => b.id === bellId)) { 
-                targetScheduleId = scheduleId; 
-                break; 
-            } 
-        } 
-        if (!targetScheduleId) return; 
-        const scheduleToUpdate = originalSchedules[targetScheduleId]; 
-        const updatedBells = scheduleToUpdate.bells.map(b => b.id === bellId ? { ...b, ...updatedData } : b); 
-        const updatedSchedule = { ...scheduleToUpdate, bells: updatedBells }; 
-        set({ schedules: { ...originalSchedules, [targetScheduleId]: updatedSchedule } }); 
-        try { 
-            await fetch(`${API_URL}/bells/${bellId}`, { 
-                method: 'PUT', 
-                headers: getAuthHeaders(), 
-                body: JSON.stringify(updatedData), 
-            }); 
-            get().addLogEntry(`Bell updated.`); 
-        } catch (error) { 
-            console.error("Ошибка обновления звонка:", error); 
-            get().addLogEntry(`Failed to update bell.`); 
-            set({ schedules: originalSchedules }); 
-        } 
-    },
-    deleteBell: async (bellId) => { 
-        const originalSchedules = get().schedules; 
-        let targetScheduleId: string | null = null; 
-        for (const scheduleId in originalSchedules) { 
-            if (originalSchedules[scheduleId].bells.some(b => b.id === bellId)) { 
-                targetScheduleId = scheduleId; 
-                break; 
-            } 
-        } 
-        if (!targetScheduleId) return; 
-        const scheduleToUpdate = originalSchedules[targetScheduleId]; 
-        const updatedBells = scheduleToUpdate.bells.filter(b => b.id !== bellId); 
-        const updatedSchedule = { ...scheduleToUpdate, bells: updatedBells }; 
-        set({ schedules: { ...originalSchedules, [targetScheduleId]: updatedSchedule } }); 
-        try { 
-            await fetch(`${API_URL}/bells/${bellId}`, { 
-                method: 'DELETE',
-                headers: getAuthHeaders()
-            }); 
-            get().addLogEntry(`Bell deleted.`); 
-        } catch (error) { 
-            console.error("Ошибка удаления звонка:", error); 
-            get().addLogEntry(`Failed to delete bell.`); 
-            set({ schedules: originalSchedules }); 
-        } 
-    },
+    updateBell: async (bellId, updatedData) => { const o=get().schedules;let t:string|null=null;for(const s in o){if(o[s].bells.some(b=>b.id===bellId)){t=s;break;}} if(!t)return;const s=o[t];const u=s.bells.map(b=>b.id===bellId?{...b,...updatedData}:b);const d={...s,bells:u};set({schedules:{...o,[t]:d}});try{await fetch(`${API_URL}/bells/${bellId}`,{method:'PUT',headers:getAuthHeaders(),body:JSON.stringify(updatedData)}); get().addLogEntry(`Bell updated.`);}catch(e){console.error("E:",e);get().addLogEntry(`Failed to update bell.`);set({schedules:o});}},
+    deleteBell: async (bellId) => { const o=get().schedules;let t:string|null=null;for(const s in o){if(o[s].bells.some(b=>b.id===bellId)){t=s;break;}} if(!t)return;const s=o[t];const u=s.bells.filter(b=>b.id!==bellId);const d={...s,bells:u};set({schedules:{...o,[t]:d}});try{await fetch(`${API_URL}/bells/${bellId}`,{method:'DELETE',headers:getAuthHeaders()}); get().addLogEntry(`Bell deleted.`);}catch(e){console.error("E:",e);get().addLogEntry(`Failed to delete bell.`);set({schedules:o});}},
 
-    generateDayBells: async ({ scheduleId, day, startTime, lessons, lessonMinutes, breakMinutes }) => {
-        // вспомогательная функция
-        const addMinutes = (t: string, add: number) => {
-            const [h, m] = t.split(':').map(Number);
-            const d = new Date(2000, 0, 1, h, m, 0);
-            d.setMinutes(d.getMinutes() + add);
-            const hh = String(d.getHours()).padStart(2, '0');
-            const mm = String(d.getMinutes()).padStart(2, '0');
+    // <<< ПОЛНОСТЬЮ ПЕРЕПИСАННАЯ ФУНКЦИЯ ГЕНЕРАЦИИ >>>
+    generateDayBells: async ({ scheduleId, day, startTime, lessonConfigs, action }) => {
+        // 1. Обработка перезаписи (очистка дня, если нужно)
+        if (action === 'overwrite') {
+            const state = get();
+            const schedule = state.schedules[scheduleId];
+            if (schedule) {
+                const bellIdsToDelete = schedule.bells.filter(bell => bell.day === day).map(bell => bell.id);
+                if (bellIdsToDelete.length > 0) {
+                    // Используем ваш существующий deleteBell для оптимистичного UI и запросов
+                    for (const bellId of bellIdsToDelete) {
+                        await state.deleteBell(bellId);
+                    }
+                    get().addLogEntry(`Очищено ${bellIdsToDelete.length} звонков для ${day}.`);
+                }
+            }
+        }
+
+        // 2. Новая, гибкая логика генерации на основе массива настроек
+        const addMinutes = (timeString: string, minutesToAdd: number) => {
+            const [hours, minutes] = timeString.split(':').map(Number);
+            const date = new Date(); // Неважно, какая дата, главное - время
+            date.setHours(hours, minutes, 0, 0);
+            date.setMinutes(date.getMinutes() + minutesToAdd);
+            const hh = String(date.getHours()).padStart(2, '0');
+            const mm = String(date.getMinutes()).padStart(2, '0');
             return `${hh}:${mm}`;
         };
 
-        let time = startTime;
-        for (let i = 1; i <= lessons; i++) {
-            const lessonStart = time;
-            const lessonEnd = addMinutes(lessonStart, lessonMinutes);
-            const breakStart = lessonEnd;
-            const breakEnd = addMinutes(breakStart, breakMinutes);
+        let currentTime = startTime;
+        // Итерируемся по массиву с индивидуальными настройками для каждого урока
+        for (let i = 0; i < lessonConfigs.length; i++) {
+            const config = lessonConfigs[i];
+            const lessonNumber = i + 1;
+            
+            const lessonStart = currentTime;
+            const lessonEnd = addMinutes(lessonStart, config.lessonDuration);
+            
+            // Звонок на начало урока
+            await get().addBell(scheduleId, { 
+                time: lessonStart, 
+                name: `Начало ${lessonNumber}-го урока`, 
+                day, enabled: true, 
+                soundId: 'sound-1', 
+                bellType: 'lesson', 
+                breakDuration: 0 
+            });
 
-            // создаём четыре звонка (как обычные записи)
-            await get().addBell(scheduleId, { time: lessonStart, name: `Начало ${i}-го урока`, day, enabled: true, soundId: 'sound-1', bellType: 'lesson', breakDuration: 0 });
-            await get().addBell(scheduleId, { time: lessonEnd, name: `Конец ${i}-го урока`, day, enabled: true, soundId: 'sound-1', bellType: 'lesson', breakDuration: 0 });
-            if (breakMinutes > 0 && i < lessons) {
-                await get().addBell(scheduleId, { time: breakStart, name: `Начало перемены`, day, enabled: true, soundId: 'sound-1', bellType: 'break', breakDuration: breakMinutes });
-                await get().addBell(scheduleId, { time: breakEnd, name: `Конец перемены`, day, enabled: true, soundId: 'sound-1', bellType: 'break', breakDuration: breakMinutes });
-            }
+            // Звонок на конец урока (который является началом перемены)
+            await get().addBell(scheduleId, { 
+                time: lessonEnd, 
+                name: `Конец ${lessonNumber}-го урока`, 
+                day, enabled: true, 
+                soundId: 'sound-1', 
+                bellType: 'break', 
+                breakDuration: config.breakDuration 
+            });
 
-            time = breakEnd; // следующий урок начинается после перемены
+            // Время начала следующего урока = время конца этого + длительность перемены после него
+            currentTime = addMinutes(lessonEnd, config.breakDuration);
         }
-    },
 
-    // --- Убраны все SLOTS по требованию ---
+        get().addLogEntry(`Сгенерировано расписание для ${lessonConfigs.length} уроков в дне: ${day}.`);
+    },
 }));
 
 export default useStore;

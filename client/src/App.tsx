@@ -1,12 +1,13 @@
+// Файл: src/App.tsx (ПОЛНАЯ ЗАМЕНА)
 import { useEffect } from "react";
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { DashboardPage } from "./pages/Dashboard";
 import { SchedulePage } from "./pages/Schedule";
-import { LoginPage } from "./pages/Login"; // Убедись что путь правильный
+import { LoginPage } from "./pages/Login";
 import { Sidebar } from "./layouts/Sidebar";
 import { Header } from "./layouts/Header";
 import useStore from "./store/useStore";
 import { useAuthStore } from "./store/useAuthStore";
-import { useState } from 'react'; // Убедись что useState импортирован, если его нет
 
 const FullscreenLoader = ({ text }: { text: string }) => (
     <div className="flex items-center justify-center h-screen bg-slate-50">
@@ -17,52 +18,61 @@ const FullscreenLoader = ({ text }: { text: string }) => (
     </div>
 );
 
+// Новый компонент-обертка для страниц, требующих входа
+const ProtectedLayout = ({ children }: { children: React.ReactNode }) => (
+    <div className="min-h-screen bg-slate-50 text-slate-800">
+        <Sidebar /> {/* Сайбар теперь не требует пропсов */}
+        <div className="ml-64">
+            <Header />
+            <main className="p-8">{children}</main>
+        </div>
+    </div>
+);
+
 function App() {
-    const [page, setPage] = useState('dashboard');
-
-    // Состояние аутентификации
     const { isAuthenticated, _isRestored } = useAuthStore();
-
-    // Состояние данных
     const fetchInitialData = useStore(state => state.fetchInitialData);
     const dataLoading = useStore(state => state.isLoading);
 
-    // Этот эффект запускается при входе/выходе пользователя, НО только после восстановления состояния
     useEffect(() => {
         if (_isRestored && isAuthenticated) {
             fetchInitialData();
         }
     }, [_isRestored, isAuthenticated, fetchInitialData]);
 
-    // Пока Zustand не восстановил состояние из localStorage, показываем главный загрузчик
+    // 1. Пока состояние не восстановлено, показываем главный лоадер
     if (!_isRestored) {
         return <FullscreenLoader text="Инициализация приложения..." />;
     }
 
-    // Если пользователь не аутентифицирован (уже после восстановления), показываем страницу входа
-    if (!isAuthenticated) {
-        // isLoading здесь относится к процессу логина/регистрации
-        // LoginPage сам внутри будет управлять этим состоянием из useAuthStore
-        return <LoginPage />;
-    }
-
-    // Если пользователь аутентифицирован, но данные еще грузятся
-    if (dataLoading) {
-        return <FullscreenLoader text="Загрузка данных системы..." />;
-    }
-
-    // Все загружено, показываем основное приложение
+    // 2. Вся логика теперь управляется через роуты
     return (
-        <div className="min-h-screen bg-slate-50 text-slate-800">
-            <Sidebar currentPage={page} setPage={setPage} />
-            <div className="ml-64"> {/* Убедись, что ml-64 соответствует ширине Sidebar */}
-                <Header />
-                <main className="p-8">
-                    {page === 'dashboard' && <DashboardPage />}
-                    {page === 'schedule' && <SchedulePage />}
-                </main>
-            </div>
-        </div>
+        <Routes>
+            {!isAuthenticated ? (
+                // 3. Если пользователь НЕ вошел в систему
+                <>
+                    <Route path="/login" element={<LoginPage />} />
+                    {/* Все остальные адреса перенаправляют на страницу входа */}
+                    <Route path="*" element={<Navigate to="/login" replace />} />
+                </>
+            ) : (
+                // 4. Если пользователь вошел в систему
+                <>
+                    {dataLoading ? (
+                        // Пока данные грузятся, показываем лоадер на любой странице
+                        <Route path="*" element={<FullscreenLoader text="Загрузка данных системы..." />} />
+                    ) : (
+                        // Когда данные загружены, показываем страницы
+                        <>
+                            <Route path="/dashboard" element={<ProtectedLayout><DashboardPage /></ProtectedLayout>} />
+                            <Route path="/schedule" element={<ProtectedLayout><SchedulePage /></ProtectedLayout>} />
+                            {/* Любой неизвестный адрес или корень сайта перенаправляют на дашборд */}
+                            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                        </>
+                    )}
+                </>
+            )}
+        </Routes>
     );
 }
 

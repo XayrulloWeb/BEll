@@ -1,76 +1,42 @@
-import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
+import { Response, NextFunction } from 'express';
+import { Request } from 'express';
 import { dbService } from './database.service';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+import { verifyToken } from './auth.utils'; // <-- Импортируем нашу функцию
 
 export interface AuthenticatedRequest extends Request {
-    user?: {
-        id: string;
-        username: string;
-        schoolId: string;
-        role: 'admin' | 'superadmin';
-    };
+  user?: {
+    id: string;
+    username: string;
+    schoolId: string;
+    role: 'admin' | 'superadmin';
+  };
 }
 
-export const authenticateToken = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+export const authenticateToken = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+    const token = authHeader && authHeader.split(' ')[1];
 
-    if (!token) {
-        return res.status(401).json({ message: 'Токен доступа не предоставлен' });
+    if (token == null) {
+        return res.sendStatus(401);
     }
 
-    jwt.verify(token, JWT_SECRET, (err: any, decoded: any) => {
-        if (err) {
-            return res.status(403).json({ message: 'Недействительный токен' });
-        }
+    try {
+        const decoded = verifyToken(token); // <-- Используем нашу единую функцию
 
-        // Получаем актуальную информацию о пользователе из базы данных
-        const user = dbService.getUserById(decoded.userId);
+        if (!decoded) {
+            return res.status(403).json({ message: "Невалидный токен" });
+        }
+        
+        const user = await dbService.getUserById(decoded.userId);
+
         if (!user) {
-            return res.status(403).json({ message: 'Пользователь не найден' });
+            return res.sendStatus(403);
         }
 
-        req.user = {
-            id: user.id,
-            username: user.username,
-            schoolId: user.schoolId,
-            role: user.role
-        };
+        req.user = { id: user.id, username: user.username, schoolId: user.schoolId, role: user.role };
         next();
-    });
-};
-
-export const requireRole = (roles: ('admin' | 'superadmin')[]) => {
-    return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-        if (!req.user) {
-            return res.status(401).json({ message: 'Пользователь не аутентифицирован' });
-        }
-
-        if (!roles.includes(req.user.role)) {
-            return res.status(403).json({ message: 'Недостаточно прав доступа' });
-        }
-
-        next();
-    };
-};
-
-export const requireSchoolAccess = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    if (!req.user) {
-        return res.status(401).json({ message: 'Пользователь не аутентифицирован' });
+    } catch (err) {
+        console.error("Authentication middleware error:", err);
+        return res.status(500).json({ message: "Внутренняя ошибка сервера" });
     }
-
-    // Superadmin может получить доступ к любой школе
-    if (req.user.role === 'superadmin') {
-        return next();
-    }
-
-    // Admin может получить доступ только к своей школе
-    const schoolId = req.params.schoolId || req.body.schoolId || req.query.schoolId;
-    if (schoolId && schoolId !== req.user.schoolId) {
-        return res.status(403).json({ message: 'Доступ запрещен к данной школе' });
-    }
-
-    next();
 };

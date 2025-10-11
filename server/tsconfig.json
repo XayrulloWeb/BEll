@@ -1,13 +1,24 @@
-// Файл: server/tsconfig.json
 {
   "compilerOptions": {
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
-    "baseUrl": "src",
+    "target": "ES2020",
+    "module": "CommonJS", // <-- Меняем на CommonJS для лучшей совместимости с ts-node
+    "moduleResolution": "Node", // <-- Меняем на Node
+    "baseUrl": "./",
+    "paths": {
+      "@/*": ["src/*"]
+    },
     "outDir": "dist",
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true, // Включаем строгий режим
+    "skipLibCheck": true,
     "sourceMap": true,
     "noImplicitAny": true,
-    "esModuleInterop": true,
+    
+    // <<< --- ГЛАВНОЕ ИСПРАВЛЕНИЕ ЗДЕСЬ --- >>>
+    // Эта опция говорит TypeScript'у подключить типы для Node.js.
+    "types": ["node"]
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*.ts", "prisma/seed.ts"], // <-- Добавляем prisma/seed.ts сюда
+  "exclude": ["node_modules"]
 }

@@ -52,6 +52,11 @@ export function Sidebar() {
                     icon={CalendarClock} // Заменил иконку для большей наглядности
                     label="Schedule"
                 />
+                  <NavItem
+                    to="/calendar"
+                    icon={CalendarClock} // Заменил иконку для большей наглядности
+                    label="Calendar"
+                />
             </nav>
         </aside>
     );

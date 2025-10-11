@@ -1,10 +1,13 @@
-// Файл: src/index.ts (ПОЛНАЯ ЗАМЕНА)
+// Файл: src/index.ts
+
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import cron from 'node-cron';
 import dotenv from 'dotenv';
 import { dbService } from './database.service';
 import { authenticateToken } from './auth.middleware';
+
+// <<< УБЕДИТЕСЬ, ЧТО ЭТИ ИМПОРТЫ НА МЕСТЕ >>>
 import authRoutes from './routes/auth.routes';
 import scheduleRoutes from './routes/schedule.routes';
 import bellRoutes from './routes/bell.routes';
@@ -17,10 +20,12 @@ const PORT = process.env.PORT || 4000;
 
 app.use(cors());
 app.use(express.json());
-dbService.initialize();
 
-// Регистрация маршрутов
-app.use('/api/auth', authRoutes); // Открытые
+// <<< УБЕДИТЕСЬ, ЧТО ЭТА СТРОКА НА МЕСТЕ И ПРАВИЛЬНАЯ >>>
+// Она говорит: "Все запросы, начинающиеся с /api/auth, отправляй в authRoutes"
+app.use('/api/auth', authRoutes);
+
+// Остальные роуты
 app.use('/api/schedules', authenticateToken, scheduleRoutes);
 app.use('/api/bells', authenticateToken, bellRoutes);
 app.use('/api/calendar', authenticateToken, calendarRoutes);
@@ -41,7 +46,7 @@ app.get('/api/data', authenticateToken, (req: Request, res: Response) => {
 
 // Планировщик
 const DAYS_OF_WEEK_JS_ORDER = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-const checkBells = () => {
+const checkBells = async () => {
     const now = new Date();
     const currentTime = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
     const currentDay = DAYS_OF_WEEK_JS_ORDER[now.getDay()];
@@ -51,11 +56,16 @@ const checkBells = () => {
     const currentDateYYYYMMDD = `${year}-${month}-${day}`;
 
     try {
-        const allSchools = dbService.getAllSchools();
+        // ИСПОЛЬЗУЕМ AWAIT
+        const allSchools = await dbService.getAllSchools();
+        
         for (const school of allSchools) {
-            const todaysScheduleId = dbService.getScheduleIdForToday(school.id, currentDateYYYYMMDD);
+            // ИСПОЛЬЗУЕМ AWAIT
+            const todaysScheduleId = await dbService.getScheduleIdForToday(school.id, currentDateYYYYMMDD);
+            
             if (todaysScheduleId) {
-                const bellsToRing = dbService.getRingingBellsForSchedule(todaysScheduleId, currentTime, currentDay);
+                // ИСПОЛЬЗУЕМ AWAIT
+                const bellsToRing = await dbService.getRingingBellsForSchedule(todaysScheduleId, currentTime, currentDay);
                 if (bellsToRing.length > 0) {
                     console.log(`🔔 ЗВОНОК для "${school.name}": ${bellsToRing.map(b => b.name).join(', ')}`);
                 }

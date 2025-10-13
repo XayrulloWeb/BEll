@@ -1,29 +1,35 @@
-// Файл: src/layouts/Sidebar.tsx (ПОЛНАЯ ЗАМЕНА)
-import React from "react";
-import { Bell, LayoutDashboard, CalendarClock } from "lucide-react";
-import { Link, useLocation } from 'react-router-dom';
+// Файл: src/layouts/Sidebar.tsx (ИСПРАВЛЕННАЯ И ОБЪЕДИНЕННАЯ ВЕРСИЯ)
 
-// Props NavItem изменены: теперь мы передаем `to` (адрес), а не функцию
+import React from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { 
+    Bell, 
+    LayoutDashboard, 
+    ListTodo, 
+    CalendarDays, 
+    ShieldCheck 
+} from 'lucide-react';
+import { useAuthStore } from '../store/useAuthStore'; // Импортируем authStore для получения роли
+
+// Определяем пропсы для нашего компонента-ссылки
 type NavItemProps = {
     to: string;
     icon: React.ElementType;
     label: string;
 };
 
-// NavItem теперь - это ссылка, которая сама определяет свою активность
+// Компонент NavItem, который будет использоваться для всех ссылок
 const NavItem = ({ to, icon: Icon, label }: NavItemProps) => {
-    // Получаем текущий адрес страницы
     const location = useLocation();
-    // Проверяем, активна ли ссылка
-    const isActive = location.pathname === to;
+    const isActive = location.pathname.startsWith(to); // Используем startsWith для "подсвечивания" под-путей
 
     return (
         <Link
             to={to}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
                 isActive
-                    ? "bg-blue-600 text-white shadow-lg shadow-blue-500/50"
-                    : "text-slate-600 hover:bg-slate-100"
+                    ? "bg-blue-600 text-white shadow-lg shadow-blue-500/50" // Стиль для активной ссылки
+                    : "text-slate-600 hover:bg-slate-100" // Стиль для неактивной ссылки
             }`}
         >
             <Icon size={20} />
@@ -32,8 +38,10 @@ const NavItem = ({ to, icon: Icon, label }: NavItemProps) => {
     );
 };
 
-// Sidebar больше не принимает пропсы currentPage и setPage
 export function Sidebar() {
+    // Получаем информацию о пользователе из хранилища аутентификации
+    const user = useAuthStore(state => state.user);
+
     return (
         <aside className="w-64 h-screen bg-white shadow-lg p-4 flex flex-col fixed top-0 left-0">
             <div className="text-2xl font-bold text-blue-600 p-4 flex items-center gap-2">
@@ -41,22 +49,31 @@ export function Sidebar() {
                 <span>School Bell</span>
             </div>
             <nav className="mt-8 space-y-2">
-                {/* Теперь это настоящие ссылки с адресами */}
+                {/* Основные навигационные ссылки */}
                 <NavItem
                     to="/dashboard"
                     icon={LayoutDashboard}
-                    label="Dashboard"
+                    label="Главная"
                 />
                 <NavItem
                     to="/schedule"
-                    icon={CalendarClock} // Заменил иконку для большей наглядности
-                    label="Schedule"
+                    icon={ListTodo}
+                    label="Расписания"
                 />
-                  <NavItem
+                <NavItem
                     to="/calendar"
-                    icon={CalendarClock} // Заменил иконку для большей наглядности
-                    label="Calendar"
+                    icon={CalendarDays}
+                    label="Календарь"
                 />
+                
+                {/* Условный рендеринг: эта ссылка появится только для супер-админа */}
+                {user?.role === 'superadmin' && (
+                    <NavItem
+                        to="/superadmin"
+                        icon={ShieldCheck}
+                        label="Super Admin"
+                    />
+                )}
             </nav>
         </aside>
     );

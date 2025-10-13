@@ -118,6 +118,20 @@ async function deleteUser(id: string): Promise<boolean> {
     try { await prisma.user.delete({ where: { id } }); return true; } catch (error) { return false; }
 }
 
+async function createSchool(data: { name: string }): Promise<School> {
+    const newSchool = await prisma.school.create({ data });
+    return newSchool;
+}
+
+async function deleteSchool(id: string): Promise<boolean> {
+    try {
+        // onDelete: Cascade в схеме Prisma позаботится об удалении всех связанных данных
+        await prisma.school.delete({ where: { id } });
+        return true;
+    } catch (error) {
+        return false;
+    }
+}
 // <<< --- ВОТ ОБНОВЛЕННЫЙ ЭКСПОРТ --- >>>
 export const dbService = {
     getDataForSchool,
@@ -138,4 +152,6 @@ export const dbService = {
     getRingingBellsForSchedule,
     getUsersBySchool,
     deleteUser,
+    createSchool,
+    deleteSchool,
 };

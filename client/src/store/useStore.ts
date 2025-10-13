@@ -47,18 +47,42 @@ export interface SpecialDay {
   type: "HOLIDAY" | "OVERRIDE";
   override_schedule_id: string | null;
 }
+export interface User {
+    id: string;
+    username: string;
+    schoolId: string;
+    role: 'admin' | 'superadmin';
+}
 
+export interface School {
+    id: string;
+    name: string;
+}
 // --- ИНТЕРФЕЙС ХРАНИЛИЩА ---
 export interface StoreState {
   isLoading: boolean;
   isServerError: boolean;
   currentTime: Date;
+  isAlertActive: boolean;
   schedules: Record<string, ScheduleSet>;
   activeScheduleId: string | null;
   sounds: Sound[];
   activityLog: ActivityLog[];
   specialDays: SpecialDay[];
   isCalendarLoading: boolean;
+  activateAlert: () => void;   // <-- 2. Добавляем новые функции
+    deactivateAlert: () => void;
+   adminSchools: School[];
+    adminUsers: User[];
+    isAdminLoading: boolean;
+
+    // Новые функции
+    adminFetchSchools: () => Promise<void>;
+    adminAddSchool: (name: string) => Promise<void>;
+    adminDeleteSchool: (schoolId: string) => Promise<void>;
+    adminFetchUsers: (schoolId: string) => Promise<void>;
+    adminAddUser: (data: { schoolId: string, username: string, password: string }) => Promise<void>;
+    adminDeleteUser: (userId: string) => Promise<void>;
 
   fetchInitialData: () => Promise<void>;
   addScheduleSet: (name: string) => Promise<void>;
@@ -89,6 +113,10 @@ const initialState = {
   activityLog: [],
   specialDays: [],
   isCalendarLoading: false,
+  adminSchools: [],
+  adminUsers: [],
+  isAdminLoading: false,
+  isAlertActive: false,
 };
 
 const API_URL = "http://localhost:4000/api";
@@ -435,6 +463,101 @@ const useStore = create<StoreState>((set, get) => ({
           set({ specialDays: originalDays });
       }
   },
+   adminFetchSchools: async () => {
+        set({ isAdminLoading: true });
+        try {
+            const response = await fetch(`${API_URL}/admin/schools`, { headers: getAuthHeaders() });
+            if (!response.ok) throw new Error("Не удалось загрузить школы");
+            const data = await response.json();
+            set({ adminSchools: data });
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : "Ошибка");
+        } finally {
+            set({ isAdminLoading: false });
+        }
+    },
+
+    adminAddSchool: async (name: string) => {
+        try {
+            const response = await fetch(`${API_URL}/admin/schools`, {
+                method: 'POST',
+                headers: getAuthHeaders(),
+                body: JSON.stringify({ name }),
+            });
+            if (!response.ok) throw new Error("Не удалось создать школу");
+            toast.success(`Школа "${name}" успешно создана.`);
+            await get().adminFetchSchools(); // Перезагружаем список школ
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : "Ошибка");
+        }
+    },
+
+    adminDeleteSchool: async (schoolId: string) => {
+        try {
+            const response = await fetch(`${API_URL}/admin/schools/${schoolId}`, {
+                method: 'DELETE',
+                headers: getAuthHeaders(),
+            });
+            if (!response.ok) throw new Error("Не удалось удалить школу");
+            toast.success("Школа успешно удалена.");
+            set(state => ({
+                adminSchools: state.adminSchools.filter(s => s.id !== schoolId) // Оптимистичное обновление
+            }));
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : "Ошибка");
+        }
+    },
+
+    adminFetchUsers: async (schoolId: string) => {
+        set({ isAdminLoading: true });
+        try {
+            const response = await fetch(`${API_URL}/admin/users?schoolId=${schoolId}`, { headers: getAuthHeaders() });
+            if (!response.ok) throw new Error("Не удалось загрузить пользователей");
+            const data = await response.json();
+            set({ adminUsers: data });
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : "Ошибка");
+        } finally {
+            set({ isAdminLoading: false });
+        }
+    },
+
+    adminAddUser: async (data) => {
+        try {
+            const response = await fetch(`${API_URL}/admin/users`, {
+                method: 'POST',
+                headers: getAuthHeaders(),
+                body: JSON.stringify(data),
+            });
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || "Не удалось создать пользователя");
+            }
+            toast.success(`Пользователь "${data.username}" успешно создан.`);
+            await get().adminFetchUsers(data.schoolId); // Перезагружаем список юзеров для этой школы
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : "Ошибка");
+        }
+    },
+    
+    adminDeleteUser: async (userId: string) => {
+        try {
+            const response = await fetch(`${API_URL}/admin/users/${userId}`, {
+                method: 'DELETE',
+                headers: getAuthHeaders(),
+            });
+            if (!response.ok) throw new Error("Не удалось удалить пользователя");
+            toast.success("Пользователь успешно удален.");
+            set(state => ({
+                adminUsers: state.adminUsers.filter(u => u.id !== userId) // Оптимистичное обновление
+            }));
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : "Ошибка");
+        }
+    },
+     activateAlert: () => set({ isAlertActive: true }),
+    deactivateAlert: () => set({ isAlertActive: false }),
+
 
   resetState: () => set(initialState),
 }));

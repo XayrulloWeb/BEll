@@ -1,6 +1,6 @@
-// Файл: src/layouts/Header.tsx
+// Файл: src/layouts/Header.tsx (ПОЛНАЯ ЗАМЕНА)
 
-import { UserCircle2, LogOut, Settings } from "lucide-react";
+import { UserCircle2, LogOut, Settings, Siren } from "lucide-react";
 import useStore from "@/store/useStore";
 import { useAuthStore } from "@/store/useAuthStore";
 import { Button } from "@/components/ui/button";
@@ -12,19 +12,13 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { sendEmergencyAlert } from '../socket';
 
 export function Header() {
-    // Получаем данные из нашего "мозга"
-    const { activeScheduleId, schedules } = useStore();
+    // Получаем данные
     const { user, logout } = useAuthStore();
-
-    // Безопасно получаем активное расписание.
-    // Знак '?' не даст коду сломаться, если schedules еще не загрузились.
-    const activeSchedule = schedules?.[activeScheduleId];
-
-    const handleLogout = () => {
-        logout();
-    };
+    const activeSchedule = useStore(state => state.schedules?.[state.activeScheduleId]);
 
     return (
         <header className="py-4 px-8 bg-white/70 backdrop-blur-sm border-b border-slate-200 sticky top-0 z-10">
@@ -37,14 +31,40 @@ export function Header() {
                     <p className="text-sm text-slate-500">
                         Активное расписание:
                         <span className="ml-1 font-semibold text-blue-600">
-                            {/* Если расписание есть - показываем имя, если нет - показываем 'None' */}
                             {activeSchedule ? activeSchedule.name : 'Не выбрано'}
                         </span>
                     </p>
                 </div>
 
-                {/* Правая часть: Меню пользователя */}
-                <div className="flex items-center gap-3">
+                {/* Правая часть: Кнопки и Меню пользователя */}
+                <div className="flex items-center gap-4">
+                    
+                    {/* Кнопка "Тревога" теперь одна и не переключается */}
+                    {user?.role === 'admin' && (
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button variant="destructive" className="flex items-center gap-2">
+                                    <Siren className="h-4 w-4" />
+                                    Тревога
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>Активировать сигнал тревоги?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        Это действие немедленно активирует сигнал тревоги для всех пользователей и устройств в вашей школе.
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>Отмена</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => sendEmergencyAlert('fire')}>
+                                        Да, включить тревогу
+                                    </AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                    )}
+
                     <span className="text-sm font-medium text-slate-700 hidden sm:block">
                         {user?.role === 'superadmin' ? 'Супер-администратор' : 'Администратор'}
                     </span>
@@ -72,7 +92,7 @@ export function Header() {
                                 <span>Настройки</span>
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={handleLogout}>
+                            <DropdownMenuItem onClick={logout}>
                                 <LogOut className="mr-2 h-4 w-4" />
                                 <span>Выйти</span>
                             </DropdownMenuItem>

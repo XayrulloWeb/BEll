@@ -44,3 +44,17 @@ export const setActiveSchedule = async (req: AuthenticatedRequest, res: Response
         next(error);
     }
 };
+export const renameSchedule = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+        const { id } = req.params;
+        const { name } = req.body;
+        if (!name) {
+            return res.status(400).json({ message: "Необходимо указать новое имя" });
+        }
+        const updatedSchedule = await dbService.renameSchedule(id, name); // Эту функцию создадим в dbService
+        if (!updatedSchedule) return res.status(404).json({ message: 'Расписание не найдено' });
+        res.status(200).json(updatedSchedule);
+    } catch (error) {
+        next(error);
+    }
+};

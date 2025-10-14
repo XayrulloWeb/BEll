@@ -17,7 +17,7 @@ import scheduleRoutes from './routes/schedule.routes';
 import bellRoutes from './routes/bell.routes';
 import calendarRoutes from './routes/calendar.routes';
 import adminRoutes from './routes/admin.routes';
-
+import settingsRoutes from './routes/settings.routes'; 
 dotenv.config();
 
 const app = express();
@@ -89,6 +89,7 @@ app.use('/api/schedules', authenticateToken, scheduleRoutes);
 app.use('/api/bells', authenticateToken, bellRoutes);
 app.use('/api/calendar', authenticateToken, calendarRoutes);
 app.use('/api/admin', authenticateToken, checkRole(['superadmin']), adminRoutes);
+app.use('/api/settings', settingsRoutes); 
 
 const DAYS_OF_WEEK_JS_ORDER = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const checkBells = async () => {

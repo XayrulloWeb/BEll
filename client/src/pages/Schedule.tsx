@@ -1,10 +1,6 @@
-// Файл: src/pages/SchedulePage.tsx (ПОЛНАЯ ЗАМЕНА)
-
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Plus } from 'lucide-react';
 import useStore, { Bell, BellData, GeneratorParams } from '../store/useStore';
-import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { ScheduleManager } from '@/components/schedule/ScheduleManager';
@@ -13,6 +9,9 @@ import { BellFormDialog } from '@/components/schedule/BellFormDialog';
 import { DayScheduleCard } from '@/components/schedule/DayScheduleCard';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+// Определяем начальное состояние для формы звонка
+const initialBellFormData: BellData = { time: '', day: 'Monday', name: '', enabled: true, soundId: 'sound-1', bellType: 'lesson', breakDuration: 10 };
 
 export function SchedulePage() {
     // --- Глобальное состояние из Zustand ---
@@ -25,15 +24,46 @@ export function SchedulePage() {
     const [deletingBellId, setDeletingBellId] = useState<string | null>(null);
     const [generatorParams, setGeneratorParams] = useState<Omit<GeneratorParams, 'action'> | null>(null);
     const [isGeneratorConfirmOpen, setIsGeneratorConfirmOpen] = useState(false);
+    // <<< --- ДОБАВЛЕНО НЕДОСТАЮЩЕЕ СОСТОЯНИЕ ДЛЯ ФОРМЫ --- >>>
+    const [bellFormData, setBellFormData] = useState<BellData>(initialBellFormData);
     
     // --- Обработчики событий ---
-    const handleAddNewBellClick = () => {
+   
+    const handleAddNewBellClick = (day: string) => {
         setEditingBell(null);
+
+        const lastBellInDay = activeSchedule?.bells
+            .filter(bell => bell.day === day)
+            .sort((a, b) => b.time.localeCompare(a.time))[0];
+
+        let nextTime = '08:30';
+
+        if (lastBellInDay) {
+            const [hours, minutes] = lastBellInDay.time.split(':').map(Number);
+            const date = new Date();
+            date.setHours(hours, minutes + 15, 0, 0);
+            nextTime = date.toTimeString().slice(0, 5);
+        }
+        
+        // Передаем данные в BellFormDialog через пропсы мы не можем,
+        // так как он уже использует свое внутреннее состояние.
+        // Поэтому мы обновим его пропс `editingBell`, установив его в `null`.
+        // А для передачи данных при создании, нам нужно будет модифицировать BellFormDialog.
+        // Но пока что, мы можем просто установить начальные данные.
+        // Мы передадим `bellFormData` в `BellFormDialog` позже.
+        // А пока просто откроем диалог.
+        setBellFormData({
+            ...initialBellFormData,
+            day: day,
+            time: nextTime,
+        });
         setIsBellDialogOpen(true);
     };
     
     const handleEditBellClick = (bell: Bell) => {
         setEditingBell(bell);
+        // При редактировании нам не нужно менять `bellFormData`, т.к. `BellFormDialog`
+        // сам установит свое состояние на основе `editingBell`.
         setIsBellDialogOpen(true);
     };
 
@@ -41,6 +71,7 @@ export function SchedulePage() {
         if (editingBell) {
             updateBell(editingBell.id, bellData);
         } else if (activeScheduleId) {
+            // Для создания нового звонка мы используем данные, пришедшие из формы
             addBell(activeScheduleId, bellData);
         }
         setIsBellDialogOpen(false);
@@ -69,19 +100,17 @@ export function SchedulePage() {
     if (isServerError) return <div className="p-8 text-center text-red-500 font-bold">Ошибка подключения к серверу.</div>;
     
     // --- Подготовка данных для отображения ---
-    const groupedSchedule = activeSchedule ? DAYS.reduce((acc, day) => {
+    const groupedSchedule = useMemo(() => activeSchedule ? DAYS.reduce((acc, day) => {
         acc[day] = activeSchedule.bells.filter(b => b.day === day).sort((a, b) => a.time.localeCompare(b.time));
         return acc;
-    }, {} as Record<string, Bell[]>) : {};
+    }, {} as Record<string, Bell[]>) : {}, [activeSchedule]);
 
     // --- JSX РЕНДЕРИНГ ---
     return (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
             <div className="flex justify-between items-center gap-3 flex-wrap">
                 <ScheduleManager />
-                <Button onClick={handleAddNewBellClick} size="lg" disabled={!activeSchedule}>
-                    <Plus className="mr-2 h-4 w-4" /> Добавить звонок вручную
-                </Button>
+                {/* Старая кнопка закомментирована */}
             </div>
 
             {activeScheduleId && <ScheduleWizard scheduleId={activeScheduleId} onGenerate={handleWizardGenerate} />}
@@ -91,6 +120,8 @@ export function SchedulePage() {
                 onOpenChange={setIsBellDialogOpen}
                 onSubmit={handleBellFormSubmit}
                 editingBell={editingBell}
+                // Передаем начальные данные для нового звонка
+                initialDataForCreate={editingBell ? null : bellFormData}
             />
             
             {!activeSchedule ? (
@@ -107,35 +138,29 @@ export function SchedulePage() {
                             bells={groupedSchedule[day]}
                             onEdit={handleEditBellClick}
                             onDelete={(bellId) => setDeletingBellId(bellId)}
+                            // <<< --- ПЕРЕДАЕМ НОВЫЙ ПРОПС --- >>>
+                            onAdd={handleAddNewBellClick}
                         />
                     ))}
                 </div>
             )}
             
-            {/* Диалог подтверждения удаления звонка */}
+            {/* Диалоги подтверждения */}
             <AlertDialog open={!!deletingBellId} onOpenChange={() => setDeletingBellId(null)}>
                 <AlertDialogContent>
                     <AlertDialogHeader><AlertDialogTitle>Вы уверены?</AlertDialogTitle><AlertDialogDescription>Это действие невозможно отменить. Звонок будет удален навсегда.</AlertDialogDescription></AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel onClick={() => setDeletingBellId(null)}>Отмена</AlertDialogCancel>
+                        <AlertDialogCancel>Отмена</AlertDialogCancel>
                         <AlertDialogAction className="bg-red-500 hover:bg-red-600" onClick={() => { if (deletingBellId) { deleteBell(deletingBellId); setDeletingBellId(null); } }}>Да, удалить</AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
-
-            {/* Диалог подтверждения для Мастера настройки */}
             <AlertDialog open={isGeneratorConfirmOpen} onOpenChange={setIsGeneratorConfirmOpen}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle>На этот день уже есть звонки</AlertDialogTitle>
                         <AlertDialogDescription asChild>
-                            <div>
-                                Выберите, что сделать с существующими звонками для <b>{generatorParams?.day}</b>.
-                                <ul className="list-disc pl-5 mt-2 space-y-1">
-                                    <li><b>Заменить:</b> Полностью очистить день и создать новое расписание.</li>
-                                    <li><b>Добавить:</b> Сохранить старые звонки и добавить к ним новые.</li>
-                                </ul>
-                            </div>
+                           <div>Выберите, что сделать с существующими звонками для <b>{generatorParams?.day}</b>. <ul className="list-disc pl-5 mt-2 space-y-1"><li><b>Заменить:</b> Полностью очистить день и создать новое расписание.</li><li><b>Добавить:</b> Сохранить старые звонки и добавить к ним новые.</li></ul></div>
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>

@@ -9,6 +9,7 @@ import { Sidebar } from "./layouts/Sidebar";
 import { Header } from "./layouts/Header";
 import useStore from "./store/useStore";
 import { useAuthStore } from "./store/useAuthStore";
+import { SettingsPage } from './pages/SettingsPage';
 import { Toaster } from "sonner";
 import { CalendarPage } from "./pages/Calendar";
 import { SuperAdminPage } from './pages/SuperAdminPage';
@@ -119,6 +120,14 @@ function App() {
               path="/calendar"
               element={<ProtectedLayout><CalendarPage /></ProtectedLayout>}
             />
+              <Route
+                path="/settings"
+                element={
+                  <ProtectedLayout>
+                    <SettingsPage />
+                  </ProtectedLayout>
+                }
+              />
             {user?.role === 'superadmin' && (
               <Route
                 path="/superadmin"

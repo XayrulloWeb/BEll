@@ -79,3 +79,17 @@ export const setSpecialDaySchema = z.object({
     path: ["override_schedule_id"],
   })
 });
+
+// --- Settings ---
+export const changePasswordSchema = z.object({
+  body: z.object({
+    oldPassword: z.string().min(1, "Текущий пароль обязателен"),
+    newPassword: z.string().min(6, "Новый пароль должен быть не менее 6 символов"),
+  }),
+});
+
+export const updateSchoolNameSchema = z.object({
+  body: z.object({
+    name: z.string().min(2, "Название школы должно быть не менее 2 символов"),
+  }),
+});

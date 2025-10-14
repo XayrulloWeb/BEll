@@ -20,14 +20,13 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
 
-    /* === НАЧАЛО ВАЖНЫХ ИЗМЕНЕНИЙ === */
+    /* Path Aliases */
     "baseUrl": ".",
     "paths": {
       "@/*": [
-        "./src/*"
+        "src/*"
       ]
     }
-    /* === КОНЕЦ ВАЖНЫХ ИЗМЕНЕНИЙ === */
   },
   "include": ["src"],
   "references": [{ "path": "./tsconfig.node.json" }]

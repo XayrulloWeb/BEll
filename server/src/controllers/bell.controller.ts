@@ -35,3 +35,18 @@ export const deleteBell = async (req: AuthenticatedRequest, res: Response, next:
         next(error);
     }
 };
+export const createBellsBatch = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+        const bellsData: Bell[] = req.body;
+
+        // Простая валидация: убедимся, что пришел массив
+        if (!Array.isArray(bellsData) || bellsData.length === 0) {
+            return res.status(400).json({ message: "Тело запроса должно быть непустым массивом звонков" });
+        }
+
+        const count = await dbService.createBellsBatch(bellsData);
+        res.status(201).json({ message: `Успешно создано ${count} звонков.` });
+    } catch (error) {
+        next(error);
+    }
+};

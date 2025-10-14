@@ -1,6 +1,5 @@
-// Файл: src/layouts/Header.tsx (ПОЛНАЯ ЗАМЕНА)
-
 import { UserCircle2, LogOut, Settings, Siren } from "lucide-react";
+import { Link } from 'react-router-dom';
 import useStore from "@/store/useStore";
 import { useAuthStore } from "@/store/useAuthStore";
 import { Button } from "@/components/ui/button";
@@ -12,13 +11,28 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { sendEmergencyAlert } from '../socket';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { sendEmergencyAlert } from "../socket";
 
 export function Header() {
-    // Получаем данные
+    // Получаем статичные данные и функции
     const { user, logout } = useAuthStore();
-    const activeSchedule = useStore(state => state.schedules?.[state.activeScheduleId]);
+    
+    // Получаем только необходимые для рендера данные из useStore
+    const activeScheduleName = useStore(state => {
+        const activeSchedule = state.activeScheduleId ? state.schedules[state.activeScheduleId] : null;
+        return activeSchedule ? activeSchedule.name : 'Не выбрано';
+    });
 
     return (
         <header className="py-4 px-8 bg-white/70 backdrop-blur-sm border-b border-slate-200 sticky top-0 z-10">
@@ -30,8 +44,9 @@ export function Header() {
                     </h1>
                     <p className="text-sm text-slate-500">
                         Активное расписание:
+                        {/* <<< --- ИСПРАВЛЕНИЕ №1: Используем activeScheduleName --- >>> */}
                         <span className="ml-1 font-semibold text-blue-600">
-                            {activeSchedule ? activeSchedule.name : 'Не выбрано'}
+                            {activeScheduleName}
                         </span>
                     </p>
                 </div>
@@ -39,7 +54,7 @@ export function Header() {
                 {/* Правая часть: Кнопки и Меню пользователя */}
                 <div className="flex items-center gap-4">
                     
-                    {/* Кнопка "Тревога" теперь одна и не переключается */}
+                    {/* <<< --- ИСПРАВЛЕНИЕ №2: Убрали лишнюю логику, оставили только кнопку "Тревога" --- >>> */}
                     {user?.role === 'admin' && (
                         <AlertDialog>
                             <AlertDialogTrigger asChild>
@@ -81,15 +96,15 @@ export function Header() {
                             <DropdownMenuLabel className="font-normal">
                                 <div className="flex flex-col space-y-1">
                                     <p className="text-sm font-medium leading-none">{user?.username}</p>
-                                    <p className="text-xs leading-none text-muted-foreground">
-                                        {user?.schoolId}
-                                    </p>
+                                    <p className="text-xs leading-none text-muted-foreground">{user?.schoolId}</p>
                                 </div>
                             </DropdownMenuLabel>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem>
-                                <Settings className="mr-2 h-4 w-4" />
-                                <span>Настройки</span>
+                            <DropdownMenuItem asChild>
+                                <Link to="/settings">
+                                    <Settings className="mr-2 h-4 w-4" />
+                                    <span>Настройки</span>
+                                </Link>
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={logout}>
@@ -101,5 +116,5 @@ export function Header() {
                 </div>
             </div>
         </header>
-    )
+    );
 }

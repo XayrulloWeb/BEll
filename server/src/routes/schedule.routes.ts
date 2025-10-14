@@ -4,6 +4,7 @@ import {
     getAllSchoolData,
     createSchedule, 
     deleteSchedule, 
+     renameSchedule,
     setActiveSchedule 
 } from '../controllers/schedule.controller';
 import { validate } from '../validate.middleware';
@@ -20,5 +21,7 @@ router.delete('/schedules/:id', authenticateToken, deleteSchedule); // ID из p
 
 // Маршрут для управления настройками
 router.post('/settings/activeSchedule', authenticateToken, validate(setActiveScheduleSchema), setActiveSchedule);
+
+router.put('/schedules/:id', authenticateToken, renameSchedule);
 
 export default router;

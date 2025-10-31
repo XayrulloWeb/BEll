@@ -7,16 +7,20 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
+import { Loader2 } from "lucide-react";
 
 // Компонент для смены пароля
 const ChangePasswordCard = () => {
-    const { changePassword, isLoading } = useAuthStore();
+
+    const { changePassword, isLoading, validationErrors, clearValidationErrors } = useAuthStore();
     const [passwords, setPasswords] = useState({ oldPassword: '', newPassword: '', confirmPassword: '' });
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setPasswords(prev => ({ ...prev, [e.target.name]: e.target.value }));
+        if (validationErrors) {
+            clearValidationErrors(); // Очищаем ошибки при начале ввода
+        }
     };
-
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (passwords.newPassword !== passwords.confirmPassword) {
@@ -34,12 +38,29 @@ const ChangePasswordCard = () => {
             <CardHeader><CardTitle>Смена пароля</CardTitle><CardDescription>Введите ваш текущий и новый пароль.</CardDescription></CardHeader>
             <CardContent>
                 <form onSubmit={handleSubmit} className="space-y-4">
-                    <div className="space-y-2"><Label htmlFor="oldPassword">Текущий пароль</Label><Input id="oldPassword" name="oldPassword" type="password" value={passwords.oldPassword} onChange={handleChange} required /></div>
-                    <div className="space-y-2"><Label htmlFor="newPassword">Новый пароль</Label><Input id="newPassword" name="newPassword" type="password" value={passwords.newPassword} onChange={handleChange} required /></div>
-                    <div className="space-y-2"><Label htmlFor="confirmPassword">Подтвердите новый пароль</Label><Input id="confirmPassword" name="confirmPassword" type="password" value={passwords.confirmPassword} onChange={handleChange} required /></div>
-                    <Button type="submit" disabled={isLoading}>{isLoading ? "Сохранение..." : "Сохранить новый пароль"}</Button>
+                    {/* <<< --- ИСПРАВЛЕНА СТРУКТУРА JSX ЗДЕСЬ --- >>> */}
+                    <div className="space-y-1">
+                        <Label htmlFor="oldPassword">Текущий пароль</Label>
+                        <Input id="oldPassword" name="oldPassword" type="password" value={passwords.oldPassword} onChange={handleChange} required />
+                        {validationErrors?.oldPassword && <p className="text-sm text-destructive pt-1">{validationErrors.oldPassword}</p>}
+                    </div>
+                    <div className="space-y-1">
+                        <Label htmlFor="newPassword">Новый пароль</Label>
+                        <Input id="newPassword" name="newPassword" type="password" value={passwords.newPassword} onChange={handleChange} required />
+                        {validationErrors?.newPassword && <p className="text-sm text-destructive pt-1">{validationErrors.newPassword}</p>}
+                    </div>
+                    <div className="space-y-1">
+                        <Label htmlFor="confirmPassword">Подтвердите новый пароль</Label>
+                        <Input id="confirmPassword" name="confirmPassword" type="password" value={passwords.confirmPassword} onChange={handleChange} required />
+                    </div>
+
+                    <Button type="submit" disabled={isLoading}>
+                        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        {isLoading ? "Сохранение..." : "Сохранить новый пароль"}
+                    </Button>
                 </form>
             </CardContent>
+
         </Card>
     );
 };

@@ -19,6 +19,7 @@ model School {
   users            User[]      // У школы может быть много пользователей
   schedules        Schedule[]  // У школы может быть много расписаний
   specialDays      SpecialDay[]
+  apiKey           String?     @unique @map("api_key")
 
   @@map("schools")
 }

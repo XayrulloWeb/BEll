@@ -2,6 +2,7 @@
 
 import { Router } from 'express';
 import { checkRole } from '../role.middleware';
+import { regenerateApiKey } from '../controllers/admin.controller';
 import { 
     getAllSchools,
     createSchool,
@@ -26,5 +27,6 @@ router.delete('/schools/:id', deleteSchool);
 router.get('/users', getUsersBySchool);       // Получить пользователей по ?schoolId=...
 router.post('/users', createUser);
 router.delete('/users/:id', deleteUser);
+router.post('/schools/:id/regenerate-key', regenerateApiKey);
 
 export default router;

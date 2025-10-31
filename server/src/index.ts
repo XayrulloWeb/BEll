@@ -1,6 +1,7 @@
 // Файл: src/index.ts (ПОЛНАЯ ЗАМЕНА)
 
 import express from 'express';
+import deviceRoutes from './routes/device.routes';
 import cors from 'cors';
 import cron from 'node-cron';
 import dotenv from 'dotenv';
@@ -89,7 +90,8 @@ app.use('/api/schedules', authenticateToken, scheduleRoutes);
 app.use('/api/bells', authenticateToken, bellRoutes);
 app.use('/api/calendar', authenticateToken, calendarRoutes);
 app.use('/api/admin', authenticateToken, checkRole(['superadmin']), adminRoutes);
-app.use('/api/settings', settingsRoutes); 
+app.use('/api/settings', settingsRoutes);
+app.use('/api/devices', deviceRoutes);
 
 const DAYS_OF_WEEK_JS_ORDER = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const checkBells = async () => {

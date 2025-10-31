@@ -1,25 +1,32 @@
 import { useState } from 'react';
-import { ChevronDown, Plus, Edit, Trash2 } from 'lucide-react';
+import { ChevronDown, Plus, Edit, Trash2 , Loader2} from 'lucide-react';
 import useStore from '../../store/useStore';
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuGroup } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
-export const ScheduleManager = () => {
-    // Достаем новые функции из стора
-    const { 
-        schedules, 
-        activeScheduleId, 
-        setActiveSchedule, 
-        addScheduleSet, 
-        deleteScheduleSet, 
-        renameScheduleSet // Эту функцию нам нужно будет добавить в useStore
+// Определяем пропсы, которые компонент будет принимать
+interface ScheduleManagerProps {
+    isCreateDialogOpen: boolean;
+    setIsCreateDialogOpen: (isOpen: boolean) => void;
+}
+
+export const ScheduleManager = ({ isCreateDialogOpen, setIsCreateDialogOpen }: ScheduleManagerProps) => {
+    // Достаем функции из стора
+    const { isSubmitting } = useStore();
+    const {
+        schedules,
+        activeScheduleId,
+        setActiveSchedule,
+        addScheduleSet,
+        deleteScheduleSet,
+        renameScheduleSet
     } = useStore();
-    
-    const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+
+    // Локальные состояния для диалога переименования
     const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
     const [scheduleToRename, setScheduleToRename] = useState<{ id: string, name: string } | null>(null);
     const [newScheduleName, setNewScheduleName] = useState("");
@@ -28,10 +35,10 @@ export const ScheduleManager = () => {
         if (newScheduleName.trim()) {
             addScheduleSet(newScheduleName.trim());
             setNewScheduleName("");
-            setIsCreateDialogOpen(false);
+            setIsCreateDialogOpen(false); // Используем функцию из пропсов
         }
     };
-    
+
     const handleOpenRenameDialog = (schedule: { id: string, name: string }) => {
         setScheduleToRename(schedule);
         setNewScheduleName(schedule.name);
@@ -40,7 +47,6 @@ export const ScheduleManager = () => {
 
     const handleRenameSchedule = () => {
         if (scheduleToRename && newScheduleName.trim()) {
-            // Вызываем функцию переименования
             renameScheduleSet(scheduleToRename.id, newScheduleName.trim());
             setIsRenameDialogOpen(false);
             setScheduleToRename(null);
@@ -65,14 +71,13 @@ export const ScheduleManager = () => {
                     <DropdownMenuGroup>
                         {Object.values(schedules).map(schedule => (
                             <div key={schedule.id} className="flex items-center justify-between pr-2">
-                                <DropdownMenuItem 
+                                <DropdownMenuItem
                                     onSelect={() => setActiveSchedule(schedule.id)}
                                     className="flex-1 cursor-pointer"
                                 >
                                     {schedule.name}
                                 </DropdownMenuItem>
-                                
-                                {/* <<< --- КНОПКИ УПРАВЛЕНИЯ --- >>> */}
+
                                 <div className="flex">
                                     <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleOpenRenameDialog(schedule)}>
                                         <Edit className="h-4 w-4 text-slate-500" />
@@ -110,12 +115,11 @@ export const ScheduleManager = () => {
                 </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* Диалог для СОЗДАНИЯ */}
+            {/* Диалог для СОЗДАНИЯ (теперь управляется извне) */}
             <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>Создать новое расписание</DialogTitle>
-                        {/* <<< --- ДОБАВЛЯЕМ ОПИСАНИЕ --- >>> */}
                         <DialogDescription>
                             Введите название для нового набора звонков.
                         </DialogDescription>
@@ -128,12 +132,11 @@ export const ScheduleManager = () => {
                 </DialogContent>
             </Dialog>
 
-            {/* Диалог для ПЕРЕИМЕНОВАНИЯ */}
+            {/* Диалог для ПЕРЕИМЕНОВАНИЯ (управляется локально) */}
             <Dialog open={isRenameDialogOpen} onOpenChange={setIsRenameDialogOpen}>
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>Переименовать расписание</DialogTitle>
-                        {/* <<< --- ДОБАВЛЯЕМ ОПИСАНИЕ --- >>> */}
                         <DialogDescription>
                             Введите новое название для расписания "{scheduleToRename?.name}".
                         </DialogDescription>
@@ -142,7 +145,12 @@ export const ScheduleManager = () => {
                         <Label htmlFor="rename-schedule-name">Новое название</Label>
                         <Input id="rename-schedule-name" value={newScheduleName} onChange={e => setNewScheduleName(e.target.value)} />
                     </div>
-                    <DialogFooter><Button onClick={handleRenameSchedule}>Сохранить</Button></DialogFooter>
+                    <DialogFooter>
+                        <Button onClick={handleRenameSchedule} disabled={isSubmitting}>
+                            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            {isSubmitting ? 'Сохранение...' : 'Сохранить'}
+                        </Button>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
         </>

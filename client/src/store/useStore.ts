@@ -59,14 +59,16 @@ export interface User {
 export interface School {
   id: string;
   name: string;
+  apiKey?: string | null;
 }
 
 // --- ИНТЕРФЕЙС ХРАНИЛИЩА ---
 export interface StoreState {
+  isSubmitting: boolean;
   isLoading: boolean;
   createBellsBatch: (bells: Omit<Bell, "id">[]) => Promise<void>;
   updateSchoolName: (newName: string) => Promise<void>;
-
+  adminRegenerateApiKey: (schoolId: string) => Promise<void>;
   isServerError: boolean;
   currentTime: Date;
   isAlertActive: boolean;
@@ -116,6 +118,7 @@ export interface StoreState {
 // --- НАЧАЛЬНОЕ СОСТОЯНИЕ ---
 const initialState = {
   isLoading: true,
+  isSubmitting: false,
   isServerError: false,
   currentTime: new Date(),
   schedules: {},
@@ -239,6 +242,7 @@ const useStore = create<StoreState>((set, get) => ({
     })),
 
   addScheduleSet: async (name: string) => {
+    set({ isSubmitting: true });
     const originalSchedules = get().schedules;
     const tempId = `schedule-${Date.now()}`;
     const newSchedule: ScheduleSet = { id: tempId, name, bells: [] };
@@ -256,10 +260,32 @@ const useStore = create<StoreState>((set, get) => ({
       toast.error(`Ошибка при создании расписания "${name}".`);
       get().addLogEntry(`Failed to create schedule "${name}".`);
       set({ schedules: originalSchedules });
+
+    }
+    finally {
+      set({ isSubmitting: false });
+    }
+  },
+  adminRegenerateApiKey: async (schoolId) => {
+    try {
+      // Мы не будем делать эндпоинт для этого, а вызовем напрямую.
+      // Вместо этого можно создать специальный эндпоинт в admin.routes.ts.
+      // Но для простоты сделаем так, предполагая, что нам нужен эндпоинт.
+      // Давайте создадим эндпоинт.
+      const response = await fetch(`${API_URL}/admin/schools/${schoolId}/regenerate-key`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+      });
+      if (!response.ok) throw new Error("Не удалось сгенерировать ключ");
+      toast.success("Новый API ключ успешно сгенерирован.");
+      await get().adminFetchSchools(); // Обновляем список, чтобы показать новый ключ
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Ошибка");
     }
   },
 
   deleteScheduleSet: async (scheduleId: string) => {
+    set({ isSubmitting: true });
     const { schedules, activeScheduleId } = get();
     const scheduleToDelete = schedules[scheduleId];
     if (!scheduleToDelete) return;
@@ -286,12 +312,17 @@ const useStore = create<StoreState>((set, get) => ({
         `Failed to delete schedule "${scheduleToDelete.name}".`
       );
       set({ schedules, activeScheduleId }); // Rollback
+
       toast.error(`Ошибка при удалении расписания "${scheduleToDelete.name}".`);
+    }
+    finally {
+      set({ isSubmitting: false });
     }
   },
 
   setActiveSchedule: async (scheduleId: string) => {
     const originalActiveId = get().activeScheduleId;
+    set({ isSubmitting: true });
     set({ activeScheduleId: scheduleId });
     try {
       await fetch(`${API_URL}/schedules/settings/activeSchedule`, {
@@ -306,10 +337,15 @@ const useStore = create<StoreState>((set, get) => ({
       get().addLogEntry(`Failed to change active schedule.`);
       set({ activeScheduleId: originalActiveId });
       toast.error("Не удалось изменить активное расписание.");
+
+    }
+    finally {
+      set({ isSubmitting: false });
     }
   },
 
   addBell: async (scheduleId, bellData) => {
+    set({ isSubmitting: true });
     const newBell: Bell = { ...bellData, id: uuidv4(), scheduleId: scheduleId };
     const originalSchedules = get().schedules;
     const scheduleToUpdate = originalSchedules[scheduleId];
@@ -335,10 +371,14 @@ const useStore = create<StoreState>((set, get) => ({
       set({ schedules: originalSchedules });
       toast.error(`Не удалось добавить звонок "${newBell.name}".`);
     }
+    finally {
+      set({ isSubmitting: false });
+    }
   },
   renameScheduleSet: async (scheduleId, newName) => {
     const originalSchedules = get().schedules;
     // Оптимистичное обновление
+    set({ isSubmitting: true });
     set((state) => ({
       schedules: {
         ...state.schedules,
@@ -361,8 +401,12 @@ const useStore = create<StoreState>((set, get) => ({
       toast.error(error instanceof Error ? error.message : "Ошибка");
       set({ schedules: originalSchedules }); // Откат
     }
+    finally {
+      set({ isSubmitting: false });
+    }
   },
   updateBell: async (bellId, updatedData) => {
+    set({ isSubmitting: true });
     const originalSchedules = get().schedules;
     let targetScheduleId: string | null = null;
     for (const scheduleId in originalSchedules) {
@@ -395,10 +439,13 @@ const useStore = create<StoreState>((set, get) => ({
       get().addLogEntry(`Failed to update bell.`);
       set({ schedules: originalSchedules });
       toast.error("Не удалось обновить звонок.");
+    } finally {
+      set({ isSubmitting: false });
     }
   },
 
   deleteBell: async (bellId) => {
+    set({ isSubmitting: true });
     const originalSchedules = get().schedules;
     let targetScheduleId: string | null = null;
     for (const scheduleId in originalSchedules) {
@@ -428,6 +475,9 @@ const useStore = create<StoreState>((set, get) => ({
       toast.error(`Не удалось удалить звонок.`);
       get().addLogEntry(`Failed to delete bell.`);
       set({ schedules: originalSchedules });
+    }
+    finally {
+      set({ isSubmitting: false });
     }
   },
 
@@ -516,6 +566,7 @@ const useStore = create<StoreState>((set, get) => ({
   },
 
   setSpecialDay: async (dayData) => {
+    set({ isSubmitting: true });
     const originalDays = get().specialDays;
     const optimisticDay = { ...dayData, school_id: "" };
 
@@ -548,10 +599,13 @@ const useStore = create<StoreState>((set, get) => ({
         error instanceof Error ? error.message : "Ошибка сохранения правила"
       );
       set({ specialDays: originalDays });
-    }
+    }finally {
+      set({ isSubmitting: false });}
+
   },
 
   deleteSpecialDay: async (date: string) => {
+    set({ isSubmitting: true });
     const originalDays = get().specialDays;
     const newDays = originalDays.filter((day) => day.date !== date);
     set({ specialDays: newDays });
@@ -570,6 +624,8 @@ const useStore = create<StoreState>((set, get) => ({
         error instanceof Error ? error.message : "Ошибка удаления правила"
       );
       set({ specialDays: originalDays });
+    }finally {
+      set({ isSubmitting: false });
     }
   },
   adminFetchSchools: async () => {
@@ -589,6 +645,7 @@ const useStore = create<StoreState>((set, get) => ({
   },
 
   adminAddSchool: async (name: string) => {
+    set({ isSubmitting: true });
     try {
       const response = await fetch(`${API_URL}/admin/schools`, {
         method: "POST",
@@ -600,10 +657,13 @@ const useStore = create<StoreState>((set, get) => ({
       await get().adminFetchSchools(); // Перезагружаем список школ
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Ошибка");
+    } finally {
+      set({ isSubmitting: false });
     }
   },
 
   adminDeleteSchool: async (schoolId: string) => {
+    set({ isSubmitting: true });
     try {
       const response = await fetch(`${API_URL}/admin/schools/${schoolId}`, {
         method: "DELETE",
@@ -616,6 +676,8 @@ const useStore = create<StoreState>((set, get) => ({
       }));
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Ошибка");
+    }finally {
+      set({ isSubmitting: false });
     }
   },
   createBellsBatch: async (bells) => {
@@ -670,6 +732,7 @@ const useStore = create<StoreState>((set, get) => ({
   },
 
   adminAddUser: async (data) => {
+    set({ isSubmitting: true });
     try {
       const response = await fetch(`${API_URL}/admin/users`, {
         method: "POST",
@@ -684,10 +747,13 @@ const useStore = create<StoreState>((set, get) => ({
       await get().adminFetchUsers(data.schoolId); // Перезагружаем список юзеров для этой школы
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Ошибка");
+    }finally {
+      set({ isSubmitting: false });
     }
   },
 
   adminDeleteUser: async (userId: string) => {
+    set({ isSubmitting: true });
     try {
       const response = await fetch(`${API_URL}/admin/users/${userId}`, {
         method: "DELETE",
@@ -700,6 +766,8 @@ const useStore = create<StoreState>((set, get) => ({
       }));
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Ошибка");
+    } finally {
+      set({ isSubmitting: false });
     }
   },
   activateAlert: () => set({ isAlertActive: true }),

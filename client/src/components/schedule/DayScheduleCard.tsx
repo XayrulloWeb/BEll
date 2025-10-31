@@ -34,7 +34,7 @@ const calculateDuration = (time1: string, time2: string): string => {
         return '-';
     }
 };
-export const DayScheduleCard = ({ day, bells, onEdit, onDelete ,onAdd}: DayScheduleCardProps) => {
+export const DayScheduleCard = ({ day, bells = [], onEdit, onDelete ,onAdd}: DayScheduleCardProps) => {
     // Получаем функцию из хранилища
     const { createBellsBatch } = useStore();
     // Локальное состояние для диалогового окна
@@ -67,26 +67,27 @@ export const DayScheduleCard = ({ day, bells, onEdit, onDelete ,onAdd}: DaySched
                     <CardTitle>{day}</CardTitle>
                     <CardDescription>{bells.length} звонков запланировано</CardDescription>
                 </div>
-                
+
                 {/* Кнопка и диалог для копирования */}
                 <Dialog open={open} onOpenChange={setOpen}>
                     <DialogTrigger asChild>
                         <Button variant="ghost" size="icon" disabled={bells.length === 0} aria-label="Копировать день">
-                            <Copy className="h-4 w-4 text-slate-500" />
+                            <Copy className="h-4 w-4 text-slate-500"/>
                         </Button>
                     </DialogTrigger>
                     <DialogContent>
                         <DialogHeader>
                             <DialogTitle>Копировать звонки с {day}</DialogTitle>
-                            <DialogDescription>Выберите дни, на которые нужно скопировать {bells.length} звонков.</DialogDescription>
+                            <DialogDescription>Выберите дни, на которые нужно
+                                скопировать {bells.length} звонков.</DialogDescription>
                         </DialogHeader>
                         <div className="py-4 grid grid-cols-2 gap-4">
                             {ALL_DAYS.filter(d => d !== day).map(d => (
                                 <div key={d} className="flex items-center space-x-2">
-                                    <Checkbox 
-                                        id={d} 
+                                    <Checkbox
+                                        id={d}
                                         onCheckedChange={(checked) => {
-                                            setSelectedDays(prev => 
+                                            setSelectedDays(prev =>
                                                 checked ? [...prev, d] : prev.filter(day => day !== d)
                                             );
                                         }}
@@ -103,7 +104,7 @@ export const DayScheduleCard = ({ day, bells, onEdit, onDelete ,onAdd}: DaySched
                 </Dialog>
 
             </CardHeader>
-       <CardContent className="flex-grow">
+            <CardContent className="flex-grow">
                 {bells.length > 0 ? (
                     // <<< --- ОБНОВЛЕННАЯ ТАБЛИЦА --- >>>
                     <Table>
@@ -127,7 +128,8 @@ export const DayScheduleCard = ({ day, bells, onEdit, onDelete ,onAdd}: DaySched
                                     <TableRow key={bell.id} className={!bell.enabled ? 'opacity-40' : ''}>
                                         <TableCell className="font-mono font-semibold">{bell.time}</TableCell>
                                         <TableCell className="flex items-center gap-2">
-                                            <Icon className={`h-4 w-4 ${isLesson ? 'text-blue-500' : 'text-green-500'}`} />
+                                            <Icon
+                                                className={`h-4 w-4 ${isLesson ? 'text-blue-500' : 'text-green-500'}`}/>
                                             {bell.name}
                                         </TableCell>
                                         <TableCell>
@@ -140,8 +142,11 @@ export const DayScheduleCard = ({ day, bells, onEdit, onDelete ,onAdd}: DaySched
                                             {nextBell ? calculateDuration(bell.time, nextBell.time) : '-'}
                                         </TableCell>
                                         <TableCell className="text-right">
-                                            <Button variant="ghost" size="icon" onClick={() => onEdit(bell)}><Edit className="h-4 w-4" /></Button>
-                                            <Button variant="ghost" size="icon" className="hover:text-red-500" onClick={() => onDelete(bell.id)}><Trash2 className="h-4 w-4" /></Button>
+                                            <Button variant="ghost" size="icon" onClick={() => onEdit(bell)}><Edit
+                                                className="h-4 w-4"/></Button>
+                                            <Button variant="ghost" size="icon" className="hover:text-red-500"
+                                                    onClick={() => onDelete(bell.id)}><Trash2
+                                                className="h-4 w-4"/></Button>
                                         </TableCell>
                                     </TableRow>
                                 );
@@ -149,12 +154,19 @@ export const DayScheduleCard = ({ day, bells, onEdit, onDelete ,onAdd}: DaySched
                         </TableBody>
                     </Table>
                 ) : (
-                    <div className="text-center py-10 text-slate-500 text-sm">Нет звонков на {day}.</div>
+                    <div
+                        className="text-center py-10 text-slate-500 text-sm h-full flex flex-col justify-center items-center">
+                        <p className="mb-4">На {day} звонки не запланированы.</p>
+                        <Button variant="secondary" size="sm" onClick={() => onAdd(day)}>
+                            <Plus className="mr-2 h-4 w-4"/>
+                            Добавить первый
+                        </Button>
+                    </div>
                 )}
             </CardContent>
             <div className="p-4 border-t mt-auto">
                 <Button variant="outline" className="w-full" onClick={() => onAdd(day)}>
-                    <Plus className="mr-2 h-4 w-4" />
+                    <Plus className="mr-2 h-4 w-4"/>
                     Добавить звонок на {day}
                 </Button>
             </div>

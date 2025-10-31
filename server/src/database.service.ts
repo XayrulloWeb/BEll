@@ -174,7 +174,7 @@ async function deleteSpecialDay(
 }
 
 async function getAllSchools(): Promise<Pick<School, "id" | "name">[]> {
-  return prisma.school.findMany({ select: { id: true, name: true } });
+  return prisma.school.findMany({ select: { id: true, name: true ,apiKey: true } });
 }
 
 async function getScheduleIdForToday(
@@ -331,6 +331,45 @@ async function getDataForSchool(
     activeScheduleId: school.activeScheduleId 
   };
 }
+
+async function getSchoolByApiKey(apiKey: string): Promise<School | null> {
+  return prisma.school.findUnique({ where: { apiKey } });
+}
+
+async function regenerateApiKey(schoolId: string): Promise<School | null> {
+  const newApiKey = `sk_${require('crypto').randomBytes(24).toString('hex')}`; // Генерируем ключ
+  try {
+    return await prisma.school.update({
+      where: { id: schoolId },
+      data: { apiKey: newApiKey },
+    });
+  } catch (error) {
+    return null;
+  }
+}
+
+// Эта функция будет отдавать расписание в простом формате для ESP32
+async function getScheduleForDevice(schoolId: string): Promise<{ time: string, day: string }[]> {
+  const today = new Date();
+  const dateYYYYMMDD = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+  // Находим ID активного расписания на сегодня
+  const scheduleId = await getScheduleIdForToday(schoolId, dateYYYYMMDD);
+
+  if (!scheduleId) {
+    return []; // Если сегодня выходной или расписание не задано, возвращаем пустой массив
+  }
+
+  // Получаем все звонки для этого расписания, отсортированные по дням и времени
+  const bells = await prisma.bell.findMany({
+    where: { scheduleId, enabled: true },
+    select: { time: true, day: true },
+    orderBy: [{ day: 'asc' }, { time: 'asc' }],
+  });
+
+  return bells;
+}
+
 // <<< --- ВОТ ОБНОВЛЕННЫЙ ЭКСПОРТ --- >>>
 export const dbService = {
   getDataForSchool,
@@ -356,5 +395,8 @@ export const dbService = {
   renameSchedule,
   createBellsBatch,
    updateUserPassword, // <-- Добавляем
-    updateSchoolName, 
+    updateSchoolName,
+  getSchoolByApiKey,
+  regenerateApiKey,
+  getScheduleForDevice,
 };

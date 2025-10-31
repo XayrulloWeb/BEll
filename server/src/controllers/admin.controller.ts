@@ -94,3 +94,14 @@ export const deleteUser = async (req: Request, res: Response, next: NextFunction
         next(error);
     }
 };
+
+export const regenerateApiKey = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { id } = req.params;
+        const updatedSchool = await dbService.regenerateApiKey(id);
+        if (!updatedSchool) return res.status(404).json({ message: "Школа не найдена" });
+        res.status(200).json(updatedSchool);
+    } catch (error) {
+        next(error);
+    }
+};

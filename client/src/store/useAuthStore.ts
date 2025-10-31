@@ -20,6 +20,7 @@ export interface AuthState {
     isAuthenticated: boolean;
     isLoading: boolean;
     error: string | null;
+    validationErrors: Record<string, string> | null;
     _isRestored: boolean; // Внутренний флаг для отслеживания восстановления состояния
 }
 
@@ -28,6 +29,7 @@ export interface AuthActions {
     register: (username: string, password: string, schoolId: string, role?: 'admin' | 'superadmin') => Promise<boolean>;
     logout: () => void;
     clearError: () => void;
+    clearValidationErrors: () => void;
     changePassword: (oldPassword: string, newPassword: string) => Promise<boolean>; 
 }
 
@@ -43,10 +45,11 @@ const getAuthHeaders = () => {
 
 export const useAuthStore = create<AuthState & AuthActions>()(
     persist(
-        (set) => ({
+        (set,get) => ({
             // --- Начальное состояние ---
             user: null,
             token: null,
+            validationErrors: null,
             isAuthenticated: false,
             isLoading: true,
             error: null,
@@ -119,9 +122,9 @@ export const useAuthStore = create<AuthState & AuthActions>()(
             clearError: () => {
                 set({ error: null });
             },
-
-             changePassword: async (oldPassword, newPassword) => {
-                set({ isLoading: true, error: null });
+            clearValidationErrors: () => set({ validationErrors: null }),
+            changePassword: async (oldPassword, newPassword) => {
+                set({ isLoading: true, error: null, validationErrors: null }); // Сбрасываем все ошибки
                 try {
                     const response = await fetch(`${API_URL}/settings/password`, {
                         method: 'POST',
@@ -129,14 +132,29 @@ export const useAuthStore = create<AuthState & AuthActions>()(
                         body: JSON.stringify({ oldPassword, newPassword }),
                     });
                     const data = await response.json();
-                    if (!response.ok) throw new Error(data.message || 'Ошибка смены пароля');
+
+                    if (!response.ok) {
+                        // Если это ошибка валидации от Zod (статус 400 и есть поле errors)
+                        if (response.status === 400 && data.errors) {
+                            const errors = data.errors.reduce((acc: any, err: any) => {
+                                acc[err.field.replace('body.', '')] = err.message;
+                                return acc;
+                            }, {});
+                            set({ validationErrors: errors });
+                        }
+                        // Выбрасываем ошибку в любом случае, чтобы она попала в catch
+                        throw new Error(data.message || 'Ошибка смены пароля');
+                    }
 
                     toast.success("Пароль успешно изменен!");
                     set({ isLoading: false });
                     return true;
                 } catch (error) {
                     const errorMessage = error instanceof Error ? error.message : 'Неизвестная ошибка';
-                    toast.error(errorMessage);
+                    // Показываем toast только если это не ошибка валидации (т.к. она будет показана под полем)
+                    if (!get().validationErrors) {
+                        toast.error(errorMessage);
+                    }
                     set({ error: errorMessage, isLoading: false });
                     return false;
                 }

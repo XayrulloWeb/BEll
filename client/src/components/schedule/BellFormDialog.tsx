@@ -6,9 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import useStore from '../../store/useStore.ts'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-
+import { Loader2 } from 'lucide-react';
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const initialBellFormData: BellData = { time: '', day: 'Monday', name: '', enabled: true, soundId: 'sound-1', bellType: 'lesson', breakDuration: 10 };
 
@@ -24,8 +25,7 @@ interface BellFormDialogProps {
 export const BellFormDialog = ({ isOpen, onOpenChange, onSubmit, editingBell, initialDataForCreate }: BellFormDialogProps) => {
     // Внутреннее состояние формы
     const [formData, setFormData] = useState<BellData>(initialBellFormData);
-
-    // Этот хук будет синхронизировать состояние формы с пропсами при открытии диалога
+    const isSubmitting = useStore(state => state.isSubmitting);    // Этот хук будет синхронизировать состояние формы с пропсами при открытии диалога
     useEffect(() => {
         if (isOpen) {
             if (editingBell) {
@@ -77,7 +77,10 @@ export const BellFormDialog = ({ isOpen, onOpenChange, onSubmit, editingBell, in
                         <Label htmlFor="enabled">Включить звонок</Label>
                     </div>
                     <DialogFooter>
-                        <Button type="submit">Сохранить</Button>
+                        <Button type="submit" disabled={isSubmitting}>
+                            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            {isSubmitting ? 'Сохранение...' : 'Сохранить'}
+                        </Button>
                     </DialogFooter>
                 </form>
             </DialogContent>
